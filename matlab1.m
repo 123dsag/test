@@ -1,0 +1,4 @@
+
+colse all
+clear 
+clc
