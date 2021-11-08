@@ -1,0 +1,114 @@
+clear all
+close
+clc
+%自适应采样
+
+InputImgFilePath = 'cameraman.tif';        %图像名称
+InputImg = im2double(imread(InputImgFilePath));
+figure,imshow(InputImg);
+
+%      ResultFolder = 'Results';   %新建一个名字为result的文件
+%      OptimalOrderResultFolder = fullfile(ResultFolder, 'OptimalOrder');  %在result文件下创建新的文件夹(子文件)
+%      AdaptiveOrderResultFolder = fullfile(ResultFolder, 'AdaptiveOrder');
+
+InputImgFilePath = 'cameraman.tif';               %图像名称
+InputImg = im2double(imread(InputImgFilePath));
+[mRow,nCol,nBand] = size(InputImg);               %输出大小，行，列，维数
+
+Spec = fftshift(fft2(InputImg));                   %傅里叶变换
+
+figure;
+subplot(2,1,1); imshow(InputImg);title('原图');
+subplot(2,1,2); imagesc(log(1+abs(Spec))); title('原图'); axis image;  %显示傅里变换后的图,取对数为了将幅值变小
+
+%% Generate order mats by two different methods
+AdaptiveOrderMat = getFSIAdaptiveSamplingPath(InputImg);
+nCoeftTotal = size(AdaptiveOrderMat, 1);
+
+
+
+
+%% Get reconstructed results corresponding to different sampling ratio
+SampingRatioArr = [1:1:100];  %步长为1从1到100采样
+SampingRatioToDisplayArr = [1];  %设置采样率
+
+SSIMArr = zeros(nCoeftTotal, 1);           %创建零矩阵n行1列
+RMSEArr = zeros(nCoeftTotal, 1);
+
+
+for      SamplingRatio = SampingRatioArr
+         MaskAdaptiveOrder = zeros(mRow,nCol);
+         nCoeft = round(nCoeftTotal * SamplingRatio / 100);
+    
+    for iCoeft = 1:nCoeft        
+        iRow = AdaptiveOrderMat(iCoeft, 1);
+        jCol =  AdaptiveOrderMat(iCoeft, 2);
+        MaskAdaptiveOrder(iRow,jCol) = 1;
+    end
+    RecSpecAdaptiveOrder = completeSpec(Spec .* MaskAdaptiveOrder);  
+    %index=find(RecSpecOptimalOrder==0);
+%%   
+%       imagRecSpecAdaptiveOrder=imag(RecSpecAdaptiveOrder);     
+%       realRecSpecAdaptiveOrder=real(RecSpecAdaptiveOrder);
+
+%    figure(10),imagesc(log(abs(imagRecSpecAdaptiveOrder)));
+%    figure(11),imagesc(log(abs(realRecSpecAdaptiveOrder)));
+     
+%     PtsSet = [124,128;123,129;124,130;134,128;135,129;134,130 ;127,133;128,134;127,136;...
+%            126,137;124,142;125,142;130,124;131,125;131,122;132,121;134,128;125,120;123,121;124,121;124,122];
+%     for       iPoint  = 1:size(PtsSet, 1)   
+%              irow = PtsSet(iPoint, 1);
+%               jcol =  PtsSet(iPoint, 2); 
+%                x=1:256;
+%                y=1:256;
+%               %Z1=interp2(x,y,imagRecSpecAdaptiveOrder,irow,jcol,'linear'); %               
+%               %Z2=interp2(x,y,realRecSpecAdaptiveOrder,irow,jcol,'linear');
+%               %imagRecSpecAdaptiveOrder(irow, jcol) = Z1;
+%               %realRecSpecAdaptiveOrder(irow, jcol) = Z2;
+%               RecImgAdaptiveOrderset=realRecSpecAdaptiveOrder+1j*imagRecSpecAdaptiveOrder;                           
+%               index=RecImgAdaptiveOrderset(irow,jcol);                        
+%               fprintf('index=%0.3f  irow=%d   jcol=%d \n',index,irow,jcol);
+%     end
+  %%        
+  
+  RecImgAdaptiveOrder = abs(ifft2(ifftshift( RecSpecAdaptiveOrder)));       
+   
+  
+     if ~isempty(find(SampingRatioToDisplayArr == SamplingRatio)); %判断数组是否为空
+     A_PSNR=psnr(RecImgAdaptiveOrder, InputImg);%计算其PSNR
+     A_SSIM=ssim(RecImgAdaptiveOrder, InputImg);  %计算两幅图像的SSIM
+     A_RMSE=rmse(InputImg, RecImgAdaptiveOrder);  %计算均方跟误差                            
+   
+     figure(5);
+        subplot(1,2,1); imshow(RecImgAdaptiveOrder);
+        subplot(1,2,2);imagesc(log(1+abs(RecSpecAdaptiveOrder)));axis image;        
+         title(sprintf('Sampling ratio = %d%%', SamplingRatio));       
+        %fprintf('A-PSNR=%0.3f  A-SSIM=%0.3f  A-RMSE=%0.3f  RecImgOptimalOrder \n',A_PSNR,A_SSIM,A_RMSE);    
+      
+     end    
+end
+
+
+       imagRecSpecAdaptiveOrder=imag(RecSpecAdaptiveOrder);
+       realRecSpecAdaptiveOrder=real(RecSpecAdaptiveOrder);
+PtsSet = [124,128;123,129;124,130;134,128;135,129;134,130 ;127,133;128,134;127,136;...
+           126,137;124,142;125,142;130,124;131,125;131,122;132,121;134,128;125,120;123,121;124,121;124,122];
+    for       iPoint  = 1:size(PtsSet, 1)   
+             irow = PtsSet(iPoint, 1);
+              jcol =  PtsSet(iPoint, 2); 
+               x=1:256;
+               y=1:256;
+              Z1=interp2(x,y,imagRecSpecAdaptiveOrder,irow,jcol,'linear'); %               
+              Z2=interp2(x,y,realRecSpecAdaptiveOrder,irow,jcol,'linear');
+              imagRecSpecAdaptiveOrder(irow, jcol) = Z1;
+              realRecSpecAdaptiveOrder(irow, jcol) = Z2;
+              RecImgAdaptiveOrderset=realRecSpecAdaptiveOrder+1j*imagRecSpecAdaptiveOrder;                           
+              
+              index=RecImgAdaptiveOrderset(irow,jcol);                        
+              fprintf('index=%0.3f  irow=%d   jcol=%d \n',index,irow,jcol);
+    end
+    
+   % if ~isempty(find(SampingRatioToDisplayArr == SamplingRatio)); %判断数组是否为空
+    figure(10),
+        subplot(1,2,1);imshow(abs(ifft2(ifftshift( RecImgAdaptiveOrderset))));
+        subplot(1,2,2);imagesc(log(1+abs(RecImgAdaptiveOrderset)));axis image;
